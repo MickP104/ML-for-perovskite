@@ -1,0 +1,597 @@
+#Libraries
+
+library(caret)
+library(tidyr)
+library(stats)
+library(xgboost)
+
+
+# initializing parameters
+
+o7<-0.1 #r2 initial value
+kkk<-42 #seed number “life, the universe and everything”
+kkk2<-42 #seed number
+t1<-c(1,2)
+n<-10 #k-fold value
+n1<-5 #number of random seeds
+del<-c(0,0) #internal parameter
+m1<-c(1,2) #r2 matrix
+m2<-c(1,2) #r2 matrix
+m3<-c(1,2) #r2 matrix
+m4<-c(1,2) #r2 final value
+lol<-0 #number of features after correlation test
+
+# preparing data
+
+list2 <- read.csv("C:/list2.csv") #list with features and output; output is the first column and named "gain"
+
+# rectifying the list
+
+rmcols <- rev(seq(1,ncol(list2))[!as.logical(sapply(list2, is.numeric))])
+for (i5 in rmcols) list2[[i5]] <- NULL
+list2<- list2 %>% select_if(~ !any(is.na(.)))
+sum(!complete.cases(list2))
+
+# scaling the data
+set.seed(kkk)
+list <- list2 %>% mutate_all(~(scale(.) %>% as.vector))
+list<- list %>% select_if(~ !any(is.na(.)))
+
+#initializing data for Xgboost
+x<-colnames(list[,-1])
+list222<-list
+y <- "gain"
+
+xxx2 <- rep(0, length(x))  # monotone_constraints
+xxx<- rep(0, length(x))  # monotone_constraints
+
+#Calculating kendall correlation coefficients between the output and each of the features.
+
+c1<-c(0)
+k<-0
+list444<-as.data.frame(list[,1])	
+names(list444)<-c(colnames(list[1]))
+
+for(j in 1:length(x)){
+l=x[j]
+c=cor(list[,l], list$gain, method = c("kendall"))
+c1[j]<-as.vector(c)
+
+# only the columns with c>0.1 or c<0.1 are selected to build a new list of features.
+
+if (c1[j]>0.1 || c1[j]<(-0.1)) {
+lol<-lol+1
+list555<- list(list[,l])
+names(list555)<-c(colnames(list[l]))
+list444<-cbind(list444,list555)
+}}
+print(lol) #number of the features with c>0.1 or c<0.1
+
+#testing among 5 different seeds(n1=5)
+
+x<-colnames(list444[,-1])
+
+for(j11 in 1:n1){
+
+set.seed(j11*kkk)
+yourdata<-list444[sample(nrow(list444)),]
+
+
+folds <- cut(seq(1,nrow(list444)),breaks=n,labels=FALSE)
+for(i in 1:n){
+params <- list(
+objective = "reg:squarederror",
+learning_rate = 0.3106,
+subsample= 0.4099,
+lambda= 2.7,
+gamma=3.9,
+max_depth=3,
+base_score=0.298,
+monotone_constraints=c(xxx2)
+)
+
+testIndexes <- which(folds==i,arr.ind=TRUE)
+dvalidX <- xgb.DMatrix(data.matrix (yourdata[testIndexes,x ]), label = yourdata[testIndexes, y])
+dtrainX <- xgb.DMatrix(data.matrix (yourdata[-testIndexes, x]), label = yourdata[-testIndexes,y])
+modelX <- xgb.train(
+params,
+verbose=0,
+data = dtrainX,
+watchlist = list(valid = dvalidX),
+early_stopping_rounds = 100,
+print_every_n = 100,
+nrounds = 260
+)
+labelXtest <- xgboost ::getinfo(dvalidX, "label")
+predXtest <- predict(modelX, dvalidX)
+
+labelXtrain<- xgboost ::getinfo(dtrainX, "label")
+predXtrain<- predict(modelX, dtrainX)
+
+x2<-rsquare(predXtest, labelXtest)
+t2<-rsquare(predXtrain, labelXtrain)
+
+m1[i]<-as.vector(x2)
+t1[i]<-as.vector(t2)
+
+}
+m1<-m1[!is.na(m1)]
+m2<- sum(m1)/length(m1)
+m3[j11]<- as.vector(m2)
+
+}
+m3<-m3[!is.na(m3)]
+m4<-(sum(m3))/length(m3)
+o7<-m4
+print("testing result:")
+print(o7)
+
+
+#rectifying rows(among 5 different seeds)
+
+for(j in 121:1){
+
+list222<-list444
+list222<-list222[-j,]
+x<-colnames(list222[,-1])
+
+m4<-c(1,2)
+m2<-c(1,2)
+m3<-c(1,2)
+m1<-c(1,2)
+
+for(j11 in 1:n1){
+
+set.seed(kkk*j11)
+yourdata<-list222[sample(nrow(list222)),]
+folds <- cut(seq(1,nrow(list222)),breaks=n,labels=FALSE)
+for(i in 1:n){
+testIndexes <- which(folds==i,arr.ind=TRUE)
+dvalidX <- xgb.DMatrix(data.matrix (yourdata[testIndexes,x ]), label = yourdata[testIndexes, y])
+dtrainX <- xgb.DMatrix(data.matrix (yourdata[-testIndexes, x]), label = yourdata[-testIndexes, y])
+params <- list(
+objective = "reg:squarederror",
+learning_rate = 0.3106,
+subsample= 0.4099,
+lambda= 2.7,
+gamma=3.9,
+max_depth=3,
+base_score=0.298,
+monotone_constraints=c(xxx2)
+)
+
+modelX <- xgb.train(
+params,
+verbose=0,
+data = dtrainX,
+watchlist = list(valid = dvalidX),
+early_stopping_rounds = 100,
+print_every_n = 100,
+nrounds = 260
+)
+labelXtest <- xgboost ::getinfo(dvalidX, "label")
+predXtest <- predict(modelX, dvalidX)
+labelXtrain<- xgboost ::getinfo(dtrainX, "label")
+predXtrain<- predict(modelX, dtrainX)
+
+x2<-rsquare(predXtest, labelXtest)
+t2<-rsquare(predXtrain, labelXtrain)
+
+m1[i]<-as.vector(x2)
+t1[i]<-as.vector(t2)
+}
+m1<-m1[!is.na(m1)]
+m2<- sum(m1)/length(m1)
+
+
+m3[j11]<- as.vector(m2)
+}
+m3<-m3[!is.na(m3)]
+m4<-(sum(m3))/length(m3)
+
+if (m4<o7  || is.na(m4) || m4==o7  )
+{
+print(j)
+list222<- list444
+}
+else
+{
+o7<-m4
+list444<-list444[-j,]
+print("removing rows; test among 5 seeds")
+print(j)
+print(o7)
+}
+
+}
+
+#choosing the k value of the k-fold validation (n11: from 14 to 3)
+n11<-13
+for(j in 14:3){
+n11<-j
+
+m4<-c(1,2)
+m2<-c(1,2)
+m3<-c(1,2)
+m1<-c(1,2)
+
+for(j11 in 1:n1){
+
+set.seed(kkk*j11)
+yourdata<-list222[sample(nrow(list222)),]
+folds <- cut(seq(1,nrow(list222)),breaks=n11,labels=FALSE)
+
+for(i in 1:n11){
+testIndexes <- which(folds==i,arr.ind=TRUE)
+dvalidX <- xgb.DMatrix(data.matrix (yourdata[testIndexes,x ]), label = yourdata[testIndexes, y])
+dtrainX <- xgb.DMatrix(data.matrix (yourdata[-testIndexes, x]), label = yourdata[-testIndexes, y])
+params <- list(
+objective = "reg:squarederror",
+learning_rate = 0.31002,
+subsample= 0.41146,
+lambda= 2.7,
+gamma=3.9,
+max_depth=3,
+base_score=0.298,
+monotone_constraints=c(xxx2)
+)
+
+modelX <- xgb.train(
+params,
+verbose=0,
+data = dtrainX,
+watchlist = list(valid = dvalidX),
+early_stopping_rounds = 100,
+print_every_n = 100,
+nrounds = 260
+)
+labelXtest <- xgboost ::getinfo(dvalidX, "label")
+predXtest <- predict(modelX, dvalidX)
+labelXtrain<- xgboost ::getinfo(dtrainX, "label")
+predXtrain<- predict(modelX, dtrainX)
+
+x2<-rsquare(predXtest, labelXtest)
+t2<-rsquare(predXtrain, labelXtrain)
+
+m1[i]<-as.vector(x2)
+t1[i]<-as.vector(t2)
+}
+m1<-m1[!is.na(m1)]
+m2<- sum(m1)/length(m1)
+
+m3[j11]<- as.vector(m2)
+}
+m3<-m3[!is.na(m3)]
+m4<-(sum(m3))/length(m3)
+
+if (m4<o7  || is.na(m4) || m4==o7  )
+{
+print("checking n")
+print(j)
+
+}
+else
+{
+o7<-m4
+n<-n11
+print("found new n")
+print(j)
+print(o7)
+}
+
+}
+
+
+# the number of seeds is decreased to 3 to reduce the calculation time
+n1<-3
+
+
+# rectifying columns(among 3 different seeds)
+
+y <- "gain"
+list555<-list444
+
+for(j in 2:ncol(list444)){
+
+list555<-list444
+list555<-list555[,-j]
+x<-colnames(list555[,-1])
+for(j11 in 1:n1){
+
+set.seed(j11*42)
+yourdata<-list555[sample(nrow(list555)),]
+
+folds <- cut(seq(1,nrow(list555)),breaks=n,labels=FALSE)
+for(i in 1:n){
+testIndexes <- which(folds==i,arr.ind=TRUE)
+params <- list(
+objective = "reg:squarederror",
+learning_rate = 0.31002,
+subsample= 0.41146,
+lambda= 2.7,
+gamma=3.9,
+max_depth=3,
+base_score=0.298,
+monotone_constraints=c(xxx2)
+)
+
+dvalidX <- xgb.DMatrix(data.matrix (yourdata[testIndexes,x ]), label = yourdata[testIndexes, y])
+dtrainX <- xgb.DMatrix(data.matrix (yourdata[-testIndexes, x]), label = yourdata[-testIndexes,y])
+modelX <- xgb.train(
+params,
+verbose=0,
+data = dtrainX,
+watchlist = list(valid = dvalidX),
+early_stopping_rounds = 100,
+print_every_n = 100,
+nrounds = 260
+)
+labelXtest <- xgboost ::getinfo(dvalidX, "label")
+predXtest <- predict(modelX, dvalidX)
+
+labelXtrain<- xgboost ::getinfo(dtrainX, "label")
+predXtrain<- predict(modelX, dtrainX)
+
+x2<-rsquare(predXtest, labelXtest)
+t2<-rsquare(predXtrain, labelXtrain)
+
+m1[i]<-as.vector(x2)
+t1[i]<-as.vector(t2)
+
+}
+m1<-m1[!is.na(m1)]
+m2<- sum(m1)/length(m1)
+m3[j11]<- as.vector(m2)
+
+}
+m3<-m3[!is.na(m3)]
+m4<-(sum(m3))/length(m3)
+
+if (m4>o7  || m4==o7  )
+{
+list444<-list444[,-j]
+o7<-m4
+print("removing columns; test among 3 seeds")
+print(j)
+print(m4)
+print(o7)
+
+}
+
+else
+{
+print("restore the column")
+print(m4)
+print(o7)
+}
+}
+
+
+# Creating matrix of monotone constraints(increasing constraints)
+
+x<-colnames(list444[,-1])
+xxx2 <- rep(0, length(x))  
+xxx<- rep(0, length(x)) 
+
+rm(list222)
+list222<-list444
+
+for(j in 2:(length(x))){
+
+for(j11 in 1:n1){
+
+set.seed(j11*kkk)
+yourdata<-list222[sample(nrow(list222)),]
+xxx2<-xxx
+xxx2[j]<-1
+
+folds <- cut(seq(1,nrow(list222)),breaks=n,labels=FALSE)
+for(i in 1:n){
+x<-colnames(list222[,-1])
+params <- list(
+objective = "reg:squarederror",
+learning_rate = 0.31002,
+subsample= 0.41146,
+lambda= 2.7,
+gamma=3.9,
+max_depth=3,
+base_score=0.298,
+monotone_constraints=c(xxx2)
+)
+
+testIndexes <- which(folds==i,arr.ind=TRUE)
+dvalidX <- xgb.DMatrix(data.matrix (yourdata[testIndexes,x ]), label = yourdata[testIndexes, y])
+dtrainX <- xgb.DMatrix(data.matrix (yourdata[-testIndexes, x]), label = yourdata[-testIndexes,y])
+modelX <- xgb.train(
+params,
+verbose=0,
+data = dtrainX,
+watchlist = list(valid = dvalidX),
+early_stopping_rounds = 100,
+print_every_n = 100,
+nrounds = 260
+)
+labelXtest <- xgboost ::getinfo(dvalidX, "label")
+predXtest <- predict(modelX, dvalidX)
+
+labelXtrain<- xgboost ::getinfo(dtrainX, "label")
+predXtrain<- predict(modelX, dtrainX)
+
+x2<-rsquare(predXtest, labelXtest)
+t2<-rsquare(predXtrain, labelXtrain)
+
+m1[i]<-as.vector(x2)
+t1[i]<-as.vector(t2)
+
+}
+m1<-m1[!is.na(m1)]
+m2<- sum(m1)/length(m1)
+
+m3[j11]<- as.vector(m2)
+
+}
+m3<-m3[!is.na(m3)]
+m4<-(sum(m3))/length(m3)
+
+if (m4<o7  || is.na(m4) || m4==o7  )
+{
+print(j)
+xxx2<-xxx
+}
+
+else
+{
+o7<-m4
+xxx[j]<-1
+xxx2<-xxx
+print("XXX matrix for selected columns; test among 3 seeds")
+print(j)
+print(o7)
+}
+
+}
+
+# Creating matrix of monotone constraints(decreasing constraints)
+
+rm(list222)
+list222<-list444
+
+for(j in 2:(length(x))){
+
+for(j11 in 1:n1){
+
+set.seed(j11*kkk)
+yourdata<-list222[sample(nrow(list222)),]
+xxx2<-xxx
+xxx2[j]<--1
+
+folds <- cut(seq(1,nrow(list222)),breaks=n,labels=FALSE)
+for(i in 1:n){
+x<-colnames(list222[,-1])
+params <- list(
+objective = "reg:squarederror",
+learning_rate = 0.31002,
+subsample= 0.41146,
+lambda= 2.7,
+gamma=3.9,
+max_depth=3,
+base_score=0.298,
+monotone_constraints=c(xxx2)
+)
+
+testIndexes <- which(folds==i,arr.ind=TRUE)
+dvalidX <- xgb.DMatrix(data.matrix (yourdata[testIndexes,x ]), label = yourdata[testIndexes, y])
+dtrainX <- xgb.DMatrix(data.matrix (yourdata[-testIndexes, x]), label = yourdata[-testIndexes,y])
+modelX <- xgb.train(
+params,
+verbose=0,
+data = dtrainX,
+watchlist = list(valid = dvalidX),
+early_stopping_rounds = 100,
+print_every_n = 100,
+nrounds = 260
+)
+labelXtest <- xgboost ::getinfo(dvalidX, "label")
+predXtest <- predict(modelX, dvalidX)
+
+labelXtrain<- xgboost ::getinfo(dtrainX, "label")
+predXtrain<- predict(modelX, dtrainX)
+
+x2<-rsquare(predXtest, labelXtest)
+t2<-rsquare(predXtrain, labelXtrain)
+
+m1[i]<-as.vector(x2)
+t1[i]<-as.vector(t2)
+
+}
+m1<-m1[!is.na(m1)]
+m2<- sum(m1)/length(m1)
+m3[j11]<- as.vector(m2)
+
+}
+m3<-m3[!is.na(m3)]
+m4<-(sum(m3))/length(m3)
+
+if (m4<o7  || is.na(m4) || m4==o7  )
+{
+print(j)
+xxx2<-xxx
+}
+
+else
+{
+o7<-m4
+xxx[j]<--1
+xxx2<-xxx
+print("XXX-1 matrix for selected columns; test among 3 seeds")
+print(j)
+print(o7)
+}
+
+}
+
+
+
+#final testing
+
+x<-colnames(list444[,-1])
+
+for(j11 in 1:n1){
+
+set.seed(j11*kkk2)
+yourdata<-list444[sample(nrow(list444)),]
+
+
+folds <- cut(seq(1,nrow(list444)),breaks=n,labels=FALSE)
+for(i in 1:n){
+params <- list(
+objective = "reg:squarederror",
+learning_rate = 0.31002,
+subsample= 0.41146,
+lambda= 2.7,
+gamma=3.9,
+max_depth=3,
+base_score=0.298,
+monotone_constraints=c(xxx2)
+)
+
+testIndexes <- which(folds==i,arr.ind=TRUE)
+dvalidX <- xgb.DMatrix(data.matrix (yourdata[testIndexes,x ]), label = yourdata[testIndexes, y])
+dtrainX <- xgb.DMatrix(data.matrix (yourdata[-testIndexes, x]), label = yourdata[-testIndexes,y])
+modelX <- xgb.train(
+params,
+verbose=0,
+data = dtrainX,
+watchlist = list(valid = dvalidX),
+early_stopping_rounds = 100,
+print_every_n = 100,
+nrounds = 260
+)
+labelXtest <- xgboost ::getinfo(dvalidX, "label")
+predXtest <- predict(modelX, dvalidX)
+
+labelXtrain<- xgboost ::getinfo(dtrainX, "label")
+predXtrain<- predict(modelX, dtrainX)
+
+x2<-rsquare(predXtest, labelXtest)
+t2<-rsquare(predXtrain, labelXtrain)
+
+m1[i]<-as.vector(x2)
+t1[i]<-as.vector(t2)
+
+}
+m1<-m1[!is.na(m1)]
+m2<- sum(m1)/length(m1)
+
+m3[j11]<- as.vector(m2)
+
+}
+m3<-m3[!is.na(m3)]
+m4<-(sum(m3))/length(m3)
+o7<-m4
+print("final testing result")
+print(o7)
+
+#write.table(list222, file = "C:/download/list222.txt", sep = ",")
+
+

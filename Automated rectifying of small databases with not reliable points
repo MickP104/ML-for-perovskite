@@ -1,11 +1,17 @@
 #by Pylnev Mick @2023
 
+#It demonstrates a process for automatically correcting 
+#small databases with unreliable data points using 
+#machine learning in the context of perovskite solar cells.
+
 #Libraries
 
 library(caret)
 library(tidyr)
 library(stats)
 library(xgboost)
+library(dplyr)
+library(berryFunctions)
 
 
 # initializing parameters
